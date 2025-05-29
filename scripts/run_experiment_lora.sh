@@ -1,0 +1,6 @@
+nohup python -u dev/mo_pipelines/mo_dd_lora.py --save_name model/11M_LoRA --load_model model/11M/200000 --dataset_name MO-Ant-v2_50000_amateur_uniform --uniform --device cuda:6 --redirect &
+nohup python -u dev/mo_pipelines/mo_dd_lora.py --save_name model/11M_LoRA --load_model model/11M/200000 --dataset_name MO-Ant-v2_50000_expert_uniform --uniform --device cuda:6 --redirect &
+nohup python -u dev/mo_pipelines/mo_dd_lora.py --save_name model/11M_LoRA --load_model model/11M/200000 --dataset_name MO-HalfCheetah-v2_50000_amateur_uniform --uniform --device cuda:7 --redirect &
+nohup python -u dev/mo_pipelines/mo_dd_lora.py --save_name model/11M_LoRA --load_model model/11M/200000 --dataset_name MO-HalfCheetah-v2_50000_expert_uniform --uniform --device cuda:7 --redirect & wait
+# nohup python -u dev/mo_pipelines/mo_dd_lora.py --save_name model/11M_LoRA --load_model model/11M/200000 --dataset_name MO-Swimmer-v2_50000_amateur_uniform --uniform --device cuda:5 --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_lora.py --save_name model/11M_LoRA --load_model model/11M/200000 --dataset_name MO-Swimmer-v2_50000_expert_uniform --uniform --device cuda:5 --redirect & wait

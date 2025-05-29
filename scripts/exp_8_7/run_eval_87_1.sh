@@ -1,0 +1,15 @@
+# nohup python -u dev/mo_pipelines/mo_dd_shattered_3obj.py --device cuda:0 --save_name model/11M_30 --mode train --force_override True --dataset_name MO-Hopper-v3_50000_amateur_uniform --uniform --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered_3obj.py --device cuda:0 --save_name model/11M_30 --mode train --force_override True --dataset_name MO-Hopper-v3_50000_expert_uniform --uniform --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered_3obj.py --device cuda:2 --save_name model/11M_S30 --side True --mode train --force_override True --dataset_name MO-Hopper-v3_50000_amateur_uniform --uniform --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered_3obj.py --device cuda:2 --save_name model/11M_S30 --side True --mode train --force_override True --dataset_name MO-Hopper-v3_50000_expert_uniform --uniform --redirect & wait
+
+# nohup python -u dev/mo_pipelines/mo_dd_wo_norm_3obj.py --device cuda:4 --num_episodes 3 --num_prefs 501 --eval_name 200k --load_model model/11M/200000 --save_name eval_standard/11M --mode eval --dataset_name MO-Hopper-v3_50000_amateur_uniform --uniform --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_wo_norm_3obj.py --device cuda:4 --num_episodes 3 --num_prefs 501 --eval_name 200k --load_model model/11M/200000 --save_name eval_standard/11M --mode eval --dataset_name MO-Hopper-v3_50000_expert_uniform  --uniform --redirect & wait
+
+nohup python -u dev/mo_pipelines/mo_dd_3obj.py --device cuda:4 --eps 0 --num_episodes 3 --num_prefs 501 --eval_name 200k --load_model model/11M_global_norm/200000 --save_name eval_standard/11M_global_norm --mode eval --dataset_name MO-Hopper-v3_50000_amateur_uniform --uniform --redirect &
+nohup python -u dev/mo_pipelines/mo_dd_3obj.py --device cuda:4 --eps 0 --num_episodes 3 --num_prefs 501 --eval_name 200k --load_model model/11M_global_norm/200000 --save_name eval_standard/11M_global_norm --mode eval --dataset_name MO-Hopper-v3_50000_expert_uniform  --uniform --redirect & wait
+
+# nohup python -u dev/mo_pipelines/mo_dd_controlnet_shattered_3obj.py --device cuda:0 --save_name model/11M_30_controlnet --load_model model/11M_30/500000 --mode train --force_override True --dataset_name MO-Hopper-v3_50000_amateur_uniform --uniform --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_controlnet_shattered_3obj.py --device cuda:0 --save_name model/11M_30_controlnet --load_model model/11M_30/500000 --mode train --force_override True --dataset_name MO-Hopper-v3_50000_expert_uniform --uniform --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_controlnet_shattered_3obj.py --device cuda:2 --save_name model/11M_S30_controlnet --side True --load_model model/11M_S30/500000 --mode train --force_override True --dataset_name MO-Hopper-v3_50000_amateur_uniform --uniform --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_controlnet_shattered_3obj.py --device cuda:2 --save_name model/11M_S30_controlnet --side True --load_model model/11M_S30/500000 --mode train --force_override True --dataset_name MO-Hopper-v3_50000_expert_uniform --uniform --redirect & wait

@@ -1,0 +1,23 @@
+# for env in 
+# nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --load_model model/11M_controlnet/200000 --dataset_name MO-HalfCheetah-v2_50000_amateur_uniform --uniform --device cuda:1 --redirect &
+
+for DATASET in MO-Ant-v2_50000_expert_uniform MO-HalfCheetah-v2_50000_amateur_uniform MO-HalfCheetah-v2_50000_expert_uniform \
+        MO-Hopper-v2_50000_amateur_uniform MO-Hopper-v2_50000_expert_uniform MO-Swimmer-v2_50000_amateur_uniform MO-Swimmer-v2_50000_expert_uniform \
+        MO-Walker2d-v2_50000_amateur_uniform MO-Walker2d-v2_50000_expert_uniform
+do
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet -0.1    --eval_name -0.1   --uniform --device cuda:1 --redirect &
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet -0.05   --eval_name -0.05  --uniform --device cuda:1 --redirect &
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet -0.02   --eval_name -0.02  --uniform --device cuda:2 --redirect &
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet -0.01   --eval_name -0.01  --uniform --device cuda:2 --redirect & 
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet -0.005  --eval_name -0.005 --uniform --device cuda:3 --redirect & 
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet -0.002  --eval_name -0.002 --uniform --device cuda:3 --redirect & 
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet -0.001  --eval_name -0.001 --uniform --device cuda:4 --redirect & 
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet 0.0     --eval_name 0.0    --uniform --device cuda:4 --redirect & wait
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet 0.001   --eval_name 0.001  --uniform --device cuda:1 --redirect & 
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet 0.002   --eval_name 0.002  --uniform --device cuda:1 --redirect & 
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet 0.005   --eval_name 0.005  --uniform --device cuda:2 --redirect & 
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet 0.01    --eval_name 0.01   --uniform --device cuda:2 --redirect &
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet 0.02    --eval_name 0.02   --uniform --device cuda:3 --redirect &
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet 0.05    --eval_name 0.05   --uniform --device cuda:3 --redirect &
+    nohup python -u dev/mo_pipelines/mo_dd_controlnet.py --save_name eval_quick/11M_controlnet/w_controlnet --dataset_name $DATASET --load_model model/11M_controlnet/200000 --mode eval --w_controlnet 0.1     --eval_name 0.1    --uniform --device cuda:4 --redirect & wait
+done

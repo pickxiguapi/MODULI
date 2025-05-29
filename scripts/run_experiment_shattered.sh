@@ -1,0 +1,21 @@
+# nohup python -u dev/mo_pipelines/mo_dd_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Ant-v2_50000_amateur_uniform         --uniform --device cuda:3 --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Ant-v2_50000_expert_uniform          --uniform --device cuda:3 --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-HalfCheetah-v2_50000_amateur_uniform --uniform --device cuda:4 --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-HalfCheetah-v2_50000_expert_uniform  --uniform --device cuda:4 --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Hopper-v2_50000_amateur_uniform      --uniform --device cuda:5 --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Hopper-v2_50000_expert_uniform       --uniform --device cuda:5 --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Swimmer-v2_50000_amateur_uniform     --uniform --device cuda:6 --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Swimmer-v2_50000_expert_uniform      --uniform --device cuda:6 --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Walker2d-v2_50000_amateur_uniform    --uniform --device cuda:7 --redirect &
+# nohup python -u dev/mo_pipelines/mo_dd_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Walker2d-v2_50000_expert_uniform     --uniform --device cuda:7 --redirect & wait
+
+nohup python -u dev/mo_pipelines/mo_dd_sepguide_pro_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Ant-v2_50000_amateur_uniform         --uniform --device cuda:6 --redirect &
+nohup python -u dev/mo_pipelines/mo_dd_sepguide_pro_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Ant-v2_50000_expert_uniform          --uniform --device cuda:6 --redirect &
+nohup python -u dev/mo_pipelines/mo_dd_sepguide_pro_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-HalfCheetah-v2_50000_amateur_uniform --uniform --device cuda:7 --redirect &
+nohup python -u dev/mo_pipelines/mo_dd_sepguide_pro_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-HalfCheetah-v2_50000_expert_uniform  --uniform --device cuda:7 --redirect & wait
+nohup python -u dev/mo_pipelines/mo_dd_sepguide_pro_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Hopper-v2_50000_amateur_uniform      --uniform --device cuda:6 --redirect &
+nohup python -u dev/mo_pipelines/mo_dd_sepguide_pro_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Hopper-v2_50000_expert_uniform       --uniform --device cuda:6 --redirect &
+nohup python -u dev/mo_pipelines/mo_dd_sepguide_pro_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Swimmer-v2_50000_amateur_uniform     --uniform --device cuda:7 --redirect &
+nohup python -u dev/mo_pipelines/mo_dd_sepguide_pro_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Swimmer-v2_50000_expert_uniform      --uniform --device cuda:7 --redirect & wait
+nohup python -u dev/mo_pipelines/mo_dd_sepguide_pro_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Walker2d-v2_50000_amateur_uniform    --uniform --device cuda:6 --redirect &
+nohup python -u dev/mo_pipelines/mo_dd_sepguide_pro_shattered.py --save_name model/11M_45 --dropout_percent 0.45 --dataset_name MO-Walker2d-v2_50000_expert_uniform     --uniform --device cuda:6 --redirect & wait

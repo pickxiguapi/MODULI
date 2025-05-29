@@ -1,0 +1,4 @@
+nohup python -u dev/mo_pipelines/mo_ddpro.py --save_name depth12 --mode=train --depth 12 --device=cuda:3 --dataset_name MO-Hopper-v2_50000_expert_uniform  --redirect &
+nohup python -u dev/mo_pipelines/mo_ddpro.py --save_name depth12 --mode=train --depth 12 --device=cuda:3 --dataset_name MO-Hopper-v2_50000_amateur_uniform --redirect &
+nohup python -u dev/mo_pipelines/mo_ddpro.py --save_name depth16 --mode=train --depth 16 --device=cuda:4 --dataset_name MO-Hopper-v2_50000_expert_uniform  --redirect &
+nohup python -u dev/mo_pipelines/mo_ddpro.py --save_name depth16 --mode=train --depth 16 --device=cuda:4 --dataset_name MO-Hopper-v2_50000_amateur_uniform --redirect & wait

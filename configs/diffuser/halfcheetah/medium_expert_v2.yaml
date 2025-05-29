@@ -1,0 +1,22 @@
+pipeline_name: "diffuser_d4rl_mujoco"
+env_name: "halfcheetah-medium-expert-v2"
+seed: 0
+
+# Dataset
+terminal_penalty: -100
+discount: 0.997
+
+# Training
+n_gradient_steps_diffusion: 1000000
+n_gradient_steps_classifier: 200000
+batch_size: 256
+action_weight: 10
+save_interval: 100000
+
+# Planning
+horizon: 4
+w_cg: 0.001
+sample_steps: 10
+use_ema: true
+solver: "euler"
+n_elites: 128
