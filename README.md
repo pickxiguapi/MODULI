@@ -1,9 +1,11 @@
-# MODULI
+# MODULI: Unlocking Preference Generalization via Diffusion Models for Offline Multi-Objective Reinforcement Learning
 Official code for **MODULI: Unlocking Preference Generalization via Diffusion Models for Offline Multi-Objective Reinforcement Learning** (ICML 2025). MODULI leverages diffusion models to enable robust generalization in offline multi-objective RL.
 
-🚧The repository is still under development, codes and manuals will be organized and updated within two weeks. Please stay tuned!🚧
-
 Authors: [Yifu Yuan](https://yifu-yuan.github.io/), [Zhenrui Zheng](https://scholar.google.com/citations?user=KPpd1pYAAAAJ&hl=zh-CN), [Zibin Dong](https://scholar.google.com/citations?user=JQ6881QAAAAJ&hl=zh-CN), [JianYe Hao](http://www.icdai.org/jianye.html)
+
+
+> 🚧The repository is still under development, codes and manuals will be organized and updated within two weeks. Please stay tuned!🚧
+
 
 ## Setup
 #### 1. Environment Setup
@@ -59,11 +61,24 @@ Information about the meaning of parameters and the parsing rules for strings (e
 
 #### 3. Metric Calculation and Visualization
 
-Since each evaluate experiment pipeline only records raw data points (i.e., an array of multi-dimensional returns for test points), metrics are calculated and visualized afterwards. The code for which can be found in `dev/visualize`. The calculation code for some metrics and baseline data are referenced from the [PEDA](https://github.com/baitingzbt/PEDA) paper's source code, which can be referred to if anything is unclear.
+Since each evaluate experiment pipeline only records raw data points (i.e., an array of multi-dimensional returns for test points), metrics are calculated and visualized afterwards. The code for which can be found in `dev/visualize`. The calculation code for some metrics and baseline data are referenced from the PEDA paper's source code, which can be referred to if anything is unclear.
 
 #### 4. Evaluation of baseline algorithms on *incomplete* datasets
-We conducted comparative experiments on the *incomplete* dataset for MODULI and baseline algorithms (`MORvS`, `MODT`, etc.). Some baseline algorithms were referenced from the [PEDA](https://github.com/baitingzbt/PEDA) paper's source code and slightly modified to adapt to the *incomplete* dataset. Code details can be found in `dev/PEDA`.
+We conducted comparative experiments on the *incomplete* dataset for MODULI and baseline algorithms (`MORvS`, `MODT`, etc.). Some baseline algorithms were referenced from the PEDA paper's source code and slightly modified to adapt to the *incomplete* dataset. Code details can be found in `dev/PEDA`.
 
 #### 5. Implementation of `sliding guidance`
 
 We implement the `sliding guidance` from the paper using `Low-Rank Adaptation`. Its implementation relies on a lightweight LoRA library [lora-pytorch](https://github.com/lucidrains/lora-pytorch), which we use to train additional fine-tuning networks for the planner's neural network backbone (a 1D Diffusion Transformer). Coding details can be found in `dev/utils/diffusion_utils.py` and needs to work with the [cleandiffuser](https://github.com/CleanDiffuserTeam/CleanDiffuser) library.
+
+## Citation
+If you find this work useful in your research, please consider citing:
+
+```
+@article{yuan2025moduli,
+      title={MODULI: Unlocking Preference Generalization via Diffusion Models for Offline Multi-Objective Reinforcement Learning}, 
+      author={Yifu Yuan and Zhenrui Zheng and Zibin Dong and Jianye Hao},
+      year={2025},
+      url={https://arxiv.org/abs/2408.15501}, 
+}
+```
+
