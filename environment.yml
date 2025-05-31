@@ -1,4 +1,4 @@
-name: moduli
+name: MODULI
 channels:
   - pytorch3d
   - pytorch
