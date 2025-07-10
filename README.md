@@ -1,11 +1,7 @@
-# MODULI: Unlocking Preference Generalization via Diffusion Models for Offline Multi-Objective Reinforcement Learning
-Official code for **MODULI: Unlocking Preference Generalization via Diffusion Models for Offline Multi-Objective Reinforcement Learning** (ICML 2025). MODULI leverages diffusion models to enable robust generalization in offline multi-objective RL.
+# MODULI: Unlocking Preference Generalization via Diffusion Models for Offline Multi-Objective Reinforcement Learning (ICML2025)
+Official code for **MODULI: Unlocking Preference Generalization via Diffusion Models for Offline Multi-Objective Reinforcement Learning** (ICML 2025). MODULI leverages diffusion models to enable robust generalization in offline multi-objective RL. 
 
-Authors: [Yifu Yuan](https://yifu-yuan.github.io/), [Zhenrui Zheng](https://scholar.google.com/citations?user=KPpd1pYAAAAJ&hl=zh-CN), [Zibin Dong](https://scholar.google.com/citations?user=JQ6881QAAAAJ&hl=zh-CN), [JianYe Hao](http://www.icdai.org/jianye.html)
-
-
-> 🚧The repository is still under development, codes and manuals will be organized and updated within two weeks. Please stay tuned!🚧
-
+Authors: [Yifu Yuan](https://yifu-yuan.github.io/)*, [Zhenrui Zheng](https://scholar.google.com/citations?user=KPpd1pYAAAAJ&hl=zh-CN)*, [Zibin Dong](https://scholar.google.com/citations?user=JQ6881QAAAAJ&hl=zh-CN), [JianYe Hao](http://www.icdai.org/jianye.html)
 
 ## Setup
 #### 1. Environment Setup
