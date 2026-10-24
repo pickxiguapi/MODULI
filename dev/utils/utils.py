@@ -24,6 +24,20 @@ def hv(points: np.ndarray, ref_point: np.ndarray):
     return hv
 
 class LRUDatasetCache():
+    @classmethod
+    def load(cls, save_path="dev/data/cache/"):
+        filename = os.path.join(save_path, "LRUDatasetCache.pkl")
+        if os.path.exists(filename):
+            with open(filename, "rb") as f:
+                cache = pickle.load(f)
+            cache.save_path = save_path
+            return cache
+        return cls(save_path=save_path)
+
+    def save(self):
+        with open(os.path.join(self.save_path, "LRUDatasetCache.pkl"), "wb") as f:
+            pickle.dump(self, f)
+
     def __init__(self, capacity=12, save_path:str="dev/data/cache/"):
         self.capacity = capacity
         self.save_path = save_path
@@ -39,9 +53,10 @@ class LRUDatasetCache():
 
     def get(self, key):
         if key in self.cache:
-            # self.cache.move_to_end(key)
             with open(self.save_path + self.cache[key], 'rb') as f:
-                return pickle.load(file=f)
+                value = pickle.load(file=f)
+            self.cache.move_to_end(key)
+            return value
         return None
 
     def put(self, key, value):
@@ -65,18 +80,13 @@ class TrajSparseTable():
     support interval maximum and minimum value queries with O(1) time complexity.
     """
     def __init__(self, traj_data: np.ndarray):
-        self.level = 9
-        self.ceiling = ceil(log2(traj_data.shape[0])) + 1
+        self.level = 0
+        self.ceiling = traj_data.shape[0].bit_length()
         self.n_trajs = traj_data.shape[0]
         self.st = np.zeros((traj_data.shape[0], traj_data.shape[1], traj_data.shape[2], self.ceiling, 2), dtype=np.float32)
         
         self.st[:, :, :, 0, 0] = traj_data.copy()
         self.st[:, :, :, 0, 1] = traj_data.copy()
-
-        for l in range(1, self.level + 1):
-            for i in range(self.n_trajs - (1 << l) + 1):
-                self.st[i, :, :, l, 0] = np.maximum(self.st[i, :, :, l-1, 0], self.st[i + (1 << (l-1)), :, :, l-1, 0])
-                self.st[i, :, :, l, 1] = np.minimum(self.st[i, :, :, l-1, 1], self.st[i + (1 << (l-1)), :, :, l-1, 1])
 
     def max(self, l: int, r: int):
         """
@@ -85,7 +95,7 @@ class TrajSparseTable():
         if l < 0 or r >= self.n_trajs or r < l:
             raise ValueError("Invalid interval.")
 
-        k = int(floor(log2(r - l)))
+        k = (r - l + 1).bit_length() - 1
         self.extend(k)
         return np.maximum(self.st[l, :, :, k, 0], self.st[r - (1 << k) + 1, :, :, k, 0])
 
@@ -96,7 +106,7 @@ class TrajSparseTable():
         if l < 0 or r >= self.n_trajs or r < l:
             raise ValueError("Invalid interval.")
 
-        k = int(floor(log2(r - l)))
+        k = (r - l + 1).bit_length() - 1
         self.extend(k)
         return np.minimum(self.st[l, :, :, k, 1], self.st[r - (1 << k) + 1, :, :, k, 1])
 
@@ -104,9 +114,12 @@ class TrajSparseTable():
         assert current_level < self.ceiling
         while (self.level < current_level):
             self.level += 1
-            for i in range(self.n_trajs - (1 << self.level) + 1):
-                self.st[i, :, :, self.level, 0] = np.maximum(self.st[i, :, :, self.level - 1, 0], self.st[i + (1 << (self.level - 1)), :, :, self.level - 1, 0])
-                self.st[i, :, :, self.level, 1] = np.minimum(self.st[i, :, :, self.level - 1, 1], self.st[i + (1 << (self.level - 1)), :, :, self.level - 1, 1])
+            count = self.n_trajs - (1 << self.level) + 1
+            offset = 1 << (self.level - 1)
+            for column, reduce in enumerate((np.maximum, np.minimum)):
+                reduce(self.st[:count, :, :, self.level - 1, column],
+                       self.st[offset:offset + count, :, :, self.level - 1, column],
+                       out=self.st[:count, :, :, self.level, column])
             
         
 

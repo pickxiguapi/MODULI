@@ -1,11 +1,11 @@
 
-from typing import Dict, Callable, List, Union
+from typing import TYPE_CHECKING, Dict, Callable, List, Union
 import numpy as np
 import torch
 import scipy.interpolate as interpolate
 import numba
-from cleandiffuser.dataset.replay_buffer import ReplayBuffer
-import pytorch3d.transforms as pt
+if TYPE_CHECKING:
+    from cleandiffuser.dataset.replay_buffer import ReplayBuffer
 import functools
 
 #-----------------------------------------------------------------------------#
@@ -65,7 +65,7 @@ def create_indices(
 
 class SequenceSampler:
     def __init__(self, 
-        replay_buffer: ReplayBuffer, 
+        replay_buffer: "ReplayBuffer",
         sequence_length:int,
         pad_before:int=0,
         pad_after:int=0,

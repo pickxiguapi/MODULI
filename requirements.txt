@@ -1,0 +1,14 @@
+# Main two-objective training/evaluation pipeline (Python 3.9).
+torch==2.2.2
+torchvision==0.17.2
+numpy==1.23.5
+scipy==1.9.1
+numba==0.56.4
+gym==0.23.1
+mujoco-py==2.1.2.14
+Cython==0.29.37
+einops==0.4.1
+h5py==3.7.0
+matplotlib==3.6.1
+lora-pytorch==0.2.0
+gdown==5.2.0

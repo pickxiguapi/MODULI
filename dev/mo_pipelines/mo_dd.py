@@ -3,106 +3,85 @@ import os
 from datetime import datetime
 import json
 import sys
-sys.path.append("/mnt/dataset/zzr/modiff")
-import d4rl
+from pathlib import Path
+
+if not __package__:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import gym
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
 def set_seed(seed):
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-from cleandiffuser.dataset.d4rl_mujoco_dataset import D4RLMuJoCoDataset
 from dev.dataset.peda_mujoco_dataset import PEDAMuJoCoDataset
 from cleandiffuser.dataset.dataset_utils import loop_dataloader
-from cleandiffuser.diffusion import DDPM, EDM, DiffusionModel, DPMSolver
-from cleandiffuser.diffusion.vpsde import DiscreteVPSDE, ContinuousVPSDE
-from cleandiffuser.nn_condition import MLPCondition
-from cleandiffuser.nn_diffusion import DiT1d, JannerUNet1d
+from cleandiffuser.diffusion.vpsde import ContinuousVPSDE
+from cleandiffuser.nn_diffusion import DiT1d
 from cleandiffuser.invdynamic import MlpInvDynamic
-from cleandiffuser.utils import report_parameters, DD_RETURN_SCALE
+from cleandiffuser.utils import report_parameters
 import environments
 from dev.PEDA.modt.hypervolume import InnerHyperVolume
 hv = InnerHyperVolume([0, 0])
-from dev.utils.utils import EmbMLPCondition, MOCumRewClassifier, LRUDatasetCache
+from dev.utils.utils import EmbMLPCondition
 from time import time
 
-def inference(
-        dataset,
-        agent,
-        invdyn,
-        args,
-        uniform=False,
-):
-    # --------------- Create Preference Grid -----------------
-    if uniform:
-        eval_prefs = torch.linspace(0, 1, args.num_prefs).reshape(-1, 1)
-    else:
-        eval_prefs = torch.linspace(0.5, 0.5, args.num_prefs).reshape(-1, 1)
-    eval_prefs = torch.cat([eval_prefs, torch.ones_like(eval_prefs)-eval_prefs], dim=-1)
-    eval_rewards = np.zeros_like(eval_prefs.repeat(args.num_episodes, 1, 1).cpu().numpy())
-    eval_lens = np.zeros((args.num_episodes, args.num_prefs))
-    val = torch.ones_like(eval_prefs)*args.cond_val
-    condition = torch.cat([eval_prefs, val], dim=-1).to(args.device)
-    eval_prefs = eval_prefs.cpu().numpy()
+def inference(dataset, agent, invdyn, args, uniform=False):
+    first_pref = torch.linspace(0, 1, args.num_prefs) if uniform else torch.full((args.num_prefs,), 0.5)
+    prefs = torch.stack([first_pref, 1 - first_pref], dim=-1)
+    condition = torch.cat([prefs, torch.full_like(prefs, args.cond_val)], dim=-1).to(args.device)
+    rewards = np.zeros((args.num_episodes, args.num_prefs, 2))
+    lengths = np.zeros((args.num_episodes, args.num_prefs), dtype=int)
+    normalizers = dataset.get_normalizer()
 
-    normalizer = dataset.get_normalizer()
-    seed = args.seed
-
-    # --------------- Evaluate -----------------
-    for ep in range(args.num_episodes):
-        # evaluate args.num_envs preferences each time
-        idx = 0
+    for episode in range(args.num_episodes):
+        seed = args.seed + episode
         set_seed(seed)
-        while idx < args.num_prefs:
-            current_num_envs = min(args.num_envs, args.num_prefs-idx)
-            env = gym.vector.make(args.env_name, current_num_envs)
+        for start in range(0, args.num_prefs, args.num_envs):
+            count = min(args.num_envs, args.num_prefs - start)
+            env = gym.vector.make(args.env_name, count)
+            try:
+                obs = env.reset(seed=seed)
+                finished = np.zeros(count, dtype=bool)
+                for _ in range(500):
+                    state = torch.as_tensor(normalizers["state"].normalize(obs), device=args.device, dtype=torch.float32)
+                    prior = torch.zeros((count, args.horizon, dataset.o_dim), device=args.device)
+                    prior[:, 0] = state
+                    trajectory, _ = agent.sample(
+                        prior, n_samples=count, sample_steps=args.sample_steps,
+                        sample_step_schedule=args.sample_step_schedule, use_ema=True, solver=args.solver,
+                        condition_cfg=condition[start:start + count], w_cfg=args.w_cfg, temperature=args.temperature)
+                    action = invdyn.predict(state, trajectory[:, 1]).cpu().numpy()
+                    action = normalizers["action"].unnormalize(action)
+                    obs, _, done, infos = env.step(action)
+                    for index, info in enumerate(infos):
+                        if not finished[index]:
+                            rewards[episode, start + index] += info["obj"]
+                            lengths[episode, start + index] += 1
+                    finished |= done
+                    if finished.all():
+                        break
+            finally:
+                env.close()
+    return rewards, lengths, prefs.numpy()
 
-            obs, done, ep_reward, t = env.reset(seed=seed), False, 0, 0
-            cum_dones = None
 
-            while not np.all(cum_dones) and t <= 500:
-                # normalize obs
-                obs = torch.tensor(normalizer.normalize(obs), device=args.device, dtype=torch.float32)
+def save_evaluation(dataset, rewards, prefs, save_path, name):
+    np.save(save_path + f"rewards/{name}.npy", rewards)
+    np.save(save_path + f"prefs/{name}.npy", prefs)
+    fig, ax = plt.subplots()
+    front = dataset.seq_rew[::50].sum(1)
+    ax.scatter(front[:, 0], front[:, 1], c="y", alpha=0.5, edgecolor="none")
+    ax.scatter(*rewards.mean(0).T, c="r", edgecolor="none")
+    fig.savefig(save_path + f"plots/{name}.pdf")
+    plt.close(fig)
 
-                # sample trajectories
-                prior = torch.zeros((current_num_envs, args.horizon, obs_dim), device=args.device)
-                prior[:, 0, :obs_dim] = obs
 
-                traj, log = agent.sample(
-                    prior, n_samples=current_num_envs, sample_steps=args.sample_steps, sample_step_schedule=args.sample_step_schedule, use_ema=True, solver=args.solver,
-                    condition_cfg=condition[idx:idx + current_num_envs], w_cfg=args.w_cfg, temperature=args.temperature)
-
-                # select the best plan
-                with torch.no_grad():
-                    act = invdyn.predict(obs, traj[:, 1, :]).cpu().numpy()
-
-                # step env
-                obs, _, done, info = env.step(act)
-                
-                if cum_dones is None:
-                    cum_dones = done
-
-                for i in range(current_num_envs):
-                    eval_rewards[ep, idx + i] += info[i]['obj'] * (1 - cum_dones[i])
-                    eval_lens[ep, idx + i] += 1 - cum_dones[i]
-
-                cum_dones = np.logical_or(cum_dones, done)
-
-                t += 1
-            
-            idx += current_num_envs
-        seed += 1
-    # eval_rewards /= args.num_episodes
-    # eval_lens /= args.num_episodes    
-
-    return eval_rewards, eval_lens, eval_prefs
-
-                
 if __name__ == "__main__":
     def str2bool(v):
         return v.lower() in ("yes", "true", "t", "1")
@@ -114,13 +93,16 @@ if __name__ == "__main__":
     parser.add_argument("--eval_name", type=str, default="",
                         help="The name of the evaluation, for easy identification")
     parser.add_argument("--mode", type=str, default="train")  # train / eval
-    parser.add_argument("--device", type=str, default="cuda:5")
+    parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--load_model", type=str, default=None,
                         help=("A string represents the model to be read, include save name and file name, leave it blank to ignore it."
                               "e.g.: debug/100000 represents loading debug/diffusion_ckpt100000.pt and debug/classifier_ckpt100000.pt, depends on the pipeline"))
     parser.add_argument("--n_gradient_steps", type=int, default=200_000)
+    parser.add_argument("--eval_interval", type=int, default=20_000, help="0 disables evaluation during training")
+    parser.add_argument("--save_interval", type=int, default=100_000)
+    parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument("--redirect", action="store_true",
                         help="redirect stdout to log file")
     parser.add_argument("--resume", action="store_true",
@@ -131,7 +113,7 @@ if __name__ == "__main__":
     parser.add_argument("--solver", type=str, default="ddim")
     parser.add_argument("--sample_steps", type=int, default=10)
     parser.add_argument("--sample_step_schedule", type=str, default="uniform_continuous")
-    parser.add_argument("--nn", type=str, default="dit")
+    parser.add_argument("--nn", choices=["dit"], default="dit")
     parser.add_argument("--emb_dim", type=int, default=128)
     parser.add_argument("--d_model", type=int, default=384)
     parser.add_argument("--n_heads", type=int, default=6)
@@ -142,7 +124,7 @@ if __name__ == "__main__":
     # dataset parameters
     parser.add_argument("--terminal_penalty", type=float, default=100.,
                         help="positive value for negtive reward.")
-    parser.add_argument("--horizon", type=int, default=32)
+    parser.add_argument("--horizon", type=int, default=None)
     parser.add_argument("--avg", type=str2bool, nargs='?', default=True, choices=[True, False], 
                         help="Whether to divide cumulate reward by (max steps - current steps)")
     parser.add_argument("--gamma", type=float, default=1.,
@@ -151,7 +133,7 @@ if __name__ == "__main__":
                         help="Whether to normalize rewards when calculate score")
     parser.add_argument("--eps", type=float, default=1e-3,
                         help="Range of preferences when normalizing cumulate rewards in neighborhood")
-    parser.add_argument("--discount", type=int, default=0.997,
+    parser.add_argument("--discount", type=float, default=0.997,
                         help="DON'T MESS WITH GAMMA, discount factor when calculating trajectory segment values")
     parser.add_argument("--weighted_score", type=str2bool, nargs='?', default=False, choices=[True, False],
                         help="Whether to weight the score by the preference. \
@@ -183,77 +165,38 @@ if __name__ == "__main__":
     save_name = args.save_name
     save_path = f"results/{args.pipeline_name}/{dataset_name}/{save_name}/"
 
-    if args.mode == "train":
-        if args.load_model is not None:
-            load_save_name = '/'.join(args.load_model.split('/')[:-1])
-            load_ckpt  = args.load_model.split("/")[-1]
-            if not os.path.exists(f"results/{args.pipeline_name}/{dataset_name}/{load_save_name}/diffusion_ckpt{load_ckpt}.pt"):
-                raise FileNotFoundError(f"Model {args.load_model} not found")
-            
-            if load_save_name == save_name:
-                raise ValueError(f"Can't save model to a folder while load from it. Please simply use '--resume'")
-
-            if os.path.exists(save_path) is False:
-                os.makedirs(save_path)
-                os.makedirs(save_path + 'rewards/')
-                os.makedirs(save_path + 'prefs/')
-                os.makedirs(save_path + 'plots/')
-            elif args.save_name == "debug":
-                import shutil
-                shutil.rmtree(save_path)
-                os.makedirs(save_path)
-                os.makedirs(save_path + 'rewards/')
-                os.makedirs(save_path + 'prefs/')
-                os.makedirs(save_path + 'plots/')
-            else:
-                raise FileExistsError(f"Save path {save_path} already exists")
-
-        else:
-            if args.resume:
-                if os.path.exists(save_path) is False:
-                    os.makedirs(save_path)
-                    os.makedirs(save_path + 'rewards/')
-                    os.makedirs(save_path + 'prefs/')
-                    os.makedirs(save_path + 'plots/')
-                    max_available_ckpt = 0
-                else:
-                    max_available_ckpt = 0
-                    for file in os.listdir(save_path):
-                        if file.startswith("diffusion_ckpt"):
-                            if file.split(".pt")[0].split("diffusion_ckpt")[1].isnumeric():
-                                max_available_ckpt = max(int(file.split("diffusion_ckpt")[1].split(".pt")[0]), max_available_ckpt)
-            
-            else:
-                if os.path.exists(save_path) is False:
-                    os.makedirs(save_path)
-                    os.makedirs(save_path + 'rewards/')
-                    os.makedirs(save_path + 'prefs/')
-                    os.makedirs(save_path + 'plots/')
-                elif args.save_name == "debug":
-                    import shutil
-                    shutil.rmtree(save_path)
-                    os.makedirs(save_path)
-                    os.makedirs(save_path + 'rewards/')
-                    os.makedirs(save_path + 'prefs/')
-                    os.makedirs(save_path + 'plots/')
-                else:
-                    raise FileExistsError(f"Save path {save_path} already exists")
-    elif args.mode == "eval":
-        if os.path.exists(save_path) is False:
-            try:
-                os.makedirs(save_path)
-                os.makedirs(save_path + 'rewards/')
-                os.makedirs(save_path + 'prefs/')
-                os.makedirs(save_path + 'plots/')
-            except:
-                pass
-    else:
-        raise ValueError("Invalid mode")
-
-    if "Hopper" in dataset_name or "Walker2d" in dataset_name:
-        args.horizon = 32
-    else:
-        args.horizon = 4
+    if args.mode not in ("train", "eval"):
+        parser.error("mode must be train or eval")
+    if args.resume and args.load_model:
+        parser.error("use either --resume or --load_model")
+    if args.n_gradient_steps < 1 or args.save_interval < 1 or args.eval_interval < 0:
+        parser.error("steps/save interval must be positive and eval interval nonnegative")
+    if min(args.num_envs, args.num_prefs, args.num_episodes, args.batch_size) < 1:
+        parser.error("batch and evaluation sizes must be positive")
+    if args.mode == "eval" and not (args.load_model or args.resume):
+        parser.error("evaluation requires --load_model or --resume")
+    output = Path(save_path)
+    max_available_ckpt = max(
+        (int(path.stem.removeprefix("diffusion_ckpt")) for path in output.glob("diffusion_ckpt*.pt")
+         if path.stem.removeprefix("diffusion_ckpt").isdigit()), default=0)
+    if args.mode == "eval" and args.resume and not max_available_ckpt:
+        parser.error("no checkpoint available to evaluate")
+    if args.mode == "train" and output.exists() and not args.resume:
+        raise FileExistsError(f"Save path {save_path} already exists; use a new --save_name or --resume")
+    checkpoint = None
+    if args.load_model:
+        source = Path(args.load_model)
+        checkpoint = Path("results") / args.pipeline_name / dataset_name / source.parent / f"diffusion_ckpt{source.name}.pt"
+    elif args.resume and max_available_ckpt:
+        checkpoint = output / f"diffusion_ckpt{max_available_ckpt}.pt"
+    if checkpoint is not None and not checkpoint.is_file():
+        raise FileNotFoundError(checkpoint)
+    for subdir in ("rewards", "prefs", "plots"):
+        (output / subdir).mkdir(parents=True, exist_ok=True)
+    if args.horizon is None:
+        args.horizon = 32 if "Hopper" in dataset_name or "Walker2d" in dataset_name else 4
+    if args.horizon < 2:
+        parser.error("horizon must be at least 2 for inverse dynamics")
 
     args_dict = vars(args)
     if args.mode == "train":
@@ -277,13 +220,14 @@ if __name__ == "__main__":
 
     # ---------------- Create Dataset ----------------
 
-    env = gym.make(env_name)
     dataset = PEDAMuJoCoDataset(
         dataset_name, terminal_penalty=args.terminal_penalty, horizon=args.horizon, avg=args.avg, gamma=args.gamma,
         normalize_rewards=args.normalize_rewards, eps=args.eps, discount=args.discount, force_override=args.force_override, weighted_score=args.weighted_score)
     dataloader = DataLoader(
-        dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
+        dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True, drop_last=True)
     
+    if len(dataset) < args.batch_size:
+        raise ValueError("Dataset contains fewer trajectory segments than batch_size")
     obs_dim, act_dim, pref_dim = dataset.o_dim, dataset.a_dim, dataset.pref_dim
 
     # --------------- Create Diffusion Model -----------------
@@ -294,12 +238,12 @@ if __name__ == "__main__":
             timestep_emb_type=args.time_emb_type).to(args.device)
         nn_condition = EmbMLPCondition(
             2 * pref_dim, 128, [128, ], nn.SiLU(), 0.25, args.cond_emb_type).to(args.device)
-    elif args.nn == "unet":
-        raise NotImplementedError
 
-    invdyn = MlpInvDynamic(obs_dim, act_dim, 1024, optim_params={"lr": 5e-4}, device=args.device)
-    invdyn.load(f"results/mo_dd_invdyn/{dataset_name}/invdyn_ckpt{args.invdyn}.pt")
-    invdyn.eval()
+    invdyn = None
+    if args.mode == "eval" or args.eval_interval:
+        invdyn = MlpInvDynamic(obs_dim, act_dim, 1024, optim_params={"lr": 5e-4}, device=args.device)
+        invdyn.load(f"results/mo_dd_invdyn/{dataset_name}/invdyn_ckpt{args.invdyn}.pt")
+        invdyn.eval()
 
     print(f"======================= Parameter Report of Diffusion Model =======================")
     report_parameters(nn_diffusion)
@@ -315,50 +259,29 @@ if __name__ == "__main__":
             fix_mask=fix_mask, loss_weight=loss_weight, noise_schedule="linear",
             device=args.device)
     
-    if args.load_model:
-        print(f"Loading cached model from: {f'results/{args.pipeline_name}/{dataset_name}/' + '/'.join(args.load_model.split('/')[:-1]) + '/diffusion_ckpt' + args.load_model.split('/')[-1] + '.pt'}")
-        agent.load(f"results/{args.pipeline_name}/{dataset_name}/" + '/'.join(args.load_model.split('/')[:-1]) + '/diffusion_ckpt' + args.load_model.split('/')[-1] + '.pt')
-    elif args.resume and max_available_ckpt > 0:
-        print(f"Loading cached model from: {save_path + 'diffusion_ckpt' + str(max_available_ckpt) + '.pt'}")
-        agent.load(save_path + f"diffusion_ckpt{max_available_ckpt}.pt")
+    if checkpoint is not None:
+        print(f"Loading model from: {checkpoint}")
+        agent.load(str(checkpoint))
 
     return_scale = (args.discount ** np.arange(args.horizon, dtype=np.float32)).sum()
 
-    # test
-    # start_time = time()
-    # prior = torch.zeros((1, args.horizon, obs_dim), device=args.device)
-    # condition = torch.zeros((1, 4), device=args.device)
-    # for i in range(1000):
-    #     traj, log = agent.sample(
-    #         prior, n_samples=1, sample_steps=5, sample_step_schedule=args.sample_step_schedule, use_ema=True, solver=args.solver,
-    #         condition_cfg=condition, w_cfg=args.w_cfg, temperature=args.temperature)
-    #     if (i+1) % 100 == 0:
-    #         print(i+1)
-    # end_time = time()
-    # print(start_time-end_time)
-    # exit()
-
-    
     # --------------- Train -----------------
 
     if args.mode == "train":
-        if args.resume:
-            if args.load_model:
-                step = int(args.load_model.split("/")[1])
-            else:
-                step = max_available_ckpt
-            best_rewards = np.load(save_path + f"rewards/best.npy")
-            best_hv = np.array([hv.compute(best_rewards[i]) for i in range(best_rewards.shape[0])]).mean()
-        else:
-            step = 0
-            best_hv = 0.
+        step = max_available_ckpt if args.resume else 0
+        if step >= args.n_gradient_steps:
+            raise ValueError("Checkpoint already reached n_gradient_steps")
+        best_hv = 0.
+        if args.resume and os.path.exists(save_path + "rewards/best.npy"):
+            best_rewards = np.load(save_path + "rewards/best.npy")
+            best_hv = np.mean([hv.compute(rewards) for rewards in best_rewards])
+        start_step = step
 
         log = {"time":0., "gradient_steps": 0, "avg_loss_diffusion": 0.}
         start_time = time()
         for batch in loop_dataloader(dataloader):
 
             obs = batch["obs"]["state"].to(args.device)
-            act = batch["act"].to(args.device)
             val = batch["val"].to(args.device)
             pref = batch["pref"].to(args.device)
 
@@ -373,70 +296,43 @@ if __name__ == "__main__":
                 log["gradient_steps"] = step + 1
                 log["avg_loss_diffusion"] /= 1000
                 current_time = time()
-                log["time_per_1000_steps"] = (current_time - start_time) / (step + 1) * 1000
-                print(f"Step {step + 1}, s/kiter: {log['time_per_1000_steps']:.2f}")
-                # print(log)
-                # log = {"time":0., "gradient_steps": 0, "avg_loss_diffusion": 0.}
+                log["time_per_1000_steps"] = (current_time - start_time) / (step + 1 - start_step) * 1000
+                print(f"Step {step + 1}, loss: {log['avg_loss_diffusion']:.6f}, s/kiter: {log['time_per_1000_steps']:.2f}")
+                log["avg_loss_diffusion"] = 0.
             
-            if (step + 1) % 20_000 == 0:
+            if args.eval_interval and (step + 1) % args.eval_interval == 0:
                 agent.eval()
                 eval_rewards, eval_lens, eval_prefs = inference(dataset, agent, invdyn, args, args.uniform)
                 eval_hv = np.array([hv.compute(eval_rewards[i]) for i in range(eval_rewards.shape[0])]).mean()
-                # print(eval_rewards, eval_lens, (eval_rewards * eval_prefs).sum(-1)/np.linalg.norm(eval_rewards, ord=2, axis=-1)/np.linalg.norm(eval_prefs, ord=2, axis=-1))
                 print(f"average rewards: {(eval_rewards * eval_prefs).sum(-1).mean()}, average lens: {eval_lens.mean()}, average hvs: {eval_hv.mean()} ", end="")
                 print(f"average dis: {((eval_rewards * eval_prefs).sum(-1)/np.linalg.norm(eval_rewards, ord=2, axis=-1)/np.linalg.norm(eval_prefs, ord=2, axis=-1)).mean()}")
 
                 if eval_hv.mean() > best_hv:
                     best_hv = eval_hv.mean()
                     
-                    np.save(save_path + "rewards/" + f"best.npy", eval_rewards)
-                    np.save(save_path + "prefs/"   + f"best.npy", eval_prefs)
-
-                    fig, ax = plt.subplots()
-                    ax.scatter(dataset.seq_rew[::50, :, 0].sum(1), dataset.seq_rew[::50, :, 1].sum(1), c="y", alpha=0.5, edgecolor='none')
-                    ax.scatter(eval_rewards[:, :, 0].mean(0), eval_rewards[:, :, 1].mean(0), c="r", edgecolor='none')
-                    ax.set_title(f"{dataset_name}, step {step + 1}")
-                    fig.savefig(save_path + "plots/" + f"best.pdf")
+                    save_evaluation(dataset, eval_rewards, eval_prefs, save_path, "best")
 
                     agent.save(save_path + f"diffusion_ckpt_best.pt")
 
 
-                if (step + 1) % 100_000 == 0:
-                    np.save(save_path + "rewards/" + f"{step + 1}.npy", eval_rewards)
-                    np.save(save_path + "prefs/"   + f"{step + 1}.npy", eval_prefs)
+                save_evaluation(dataset, eval_rewards, eval_prefs, save_path, str(step + 1))
 
-                    fig, ax = plt.subplots()
-                    ax.scatter(dataset.seq_rew[::50, :, 0].sum(1), dataset.seq_rew[::50, :, 1].sum(1), c="y", alpha=0.5, edgecolor='none')
-                    ax.scatter(eval_rewards[:, :, 0].mean(0), eval_rewards[:, :, 1].mean(0), c="r", edgecolor='none')
-                    ax.set_title(f"{dataset_name}, step {step + 1}")
-                    fig.savefig(save_path + "plots/" + f"{step + 1}.pdf")
-                
                 agent.train()
             
-            if (step + 1) % 100_000 == 0:
+            if (step + 1) % args.save_interval == 0:
                 agent.save(save_path + f"diffusion_ckpt{step + 1}.pt")
             
             step += 1
             if step >= args.n_gradient_steps:
                 break
+        if step % args.save_interval:
+            agent.save(save_path + f"diffusion_ckpt{step}.pt")
         
     elif args.mode == "eval":
-        if not args.load_model and not args.resume:
-            import warnings
-            warnings.warn("You are running evaluation without loading any model")
-        
         agent.eval()
         eval_rewards, eval_lens, eval_prefs = inference(dataset, agent, invdyn, args, args.uniform)
         eval_hv = np.array([hv.compute(eval_rewards[i]) for i in range(eval_rewards.shape[0])]).mean()
-        # print(eval_rewards, eval_lens, (eval_rewards * eval_prefs).sum(-1)/np.linalg.norm(eval_rewards, ord=2, axis=-1)/np.linalg.norm(eval_prefs, ord=2, axis=-1))
         print(f"average rewards: {(eval_rewards * eval_prefs).sum(-1).mean()}, average lens: {eval_lens.mean()}, average hvs: {eval_hv.mean()} ", end="")
         print(f"average dis: {((eval_rewards * eval_prefs).sum(-1)/np.linalg.norm(eval_rewards, ord=2, axis=-1)/np.linalg.norm(eval_prefs, ord=2, axis=-1)).mean()}")
         
-        np.save(save_path + f"rewards/{args.eval_name}.npy", eval_rewards)
-        np.save(save_path + f"prefs/{args.eval_name}.npy", eval_prefs)
-        
-        fig, ax = plt.subplots()
-        ax.scatter(dataset.seq_rew[::50, :, 0].sum(1), dataset.seq_rew[::50, :, 1].sum(1), c="y", alpha=0.5, edgecolor='none')
-        ax.scatter(eval_rewards[:, :, 0].mean(0), eval_rewards[:, :, 1].mean(0), c="r", edgecolor='none')
-        ax.set_title(f"{dataset_name}")
-        fig.savefig(save_path + f"plots/{args.eval_name}.pdf")
+        save_evaluation(dataset, eval_rewards, eval_prefs, save_path, args.eval_name)

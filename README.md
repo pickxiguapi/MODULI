@@ -9,9 +9,12 @@ Authors: [Yifu Yuan](https://yifu-yuan.github.io/)*, [Zhenrui Zheng](https://sch
 ```bash
 git clone https://github.com/pickxiguapi/MODULI.git
 cd MODULI
-conda env create -f environment.yml
+conda create -n MODULI python=3.9 pip
 conda activate MODULI
+pip install -r requirements.txt
 ```
+
+These dependencies cover `mo_dd` and `mo_dd_invdyn`; `environment.yml` is the historical full experiment environment. On Linux, install MuJoCo 2.1.0 under `~/.mujoco/mujoco210` and the system packages `build-essential libosmesa6-dev libglew-dev libgl-dev patchelf`. For headless evaluation, set `MUJOCO_PY_FORCE_CPU=1` and add `~/.mujoco/mujoco210/bin` to `LD_LIBRARY_PATH`.
 #### 2. Data Download
    
 MODULI uses the D4MORL dataset from [PEDA](https://github.com/baitingzbt/PEDA), which can be downloaded as:
@@ -25,33 +28,26 @@ gdown --folder https://drive.google.com/drive/folders/1wfd6BwAu-hNLC9uvsI1WPEOmP
 #### 1. Dataset Preparation
 Since many of MODULI's experiments are based on variations of original D4MORL dataset, the processing of which is very time and disk space consuming, so MODULI adopts a cache-based dataset preparation mechanism.
 
-Although the repository comes with an pickled empty cache management file (`dev/data/cache/LRUDatasetCache.pkl`), sometimes (when it is corrupted or lost) you may need to manually recreate one:
-
-```python
-from dev.utils.utils import LRUDatasetCache
-
-cache = LRUDatasetCache(capacity=12, save_path:="dev/data/cache/")
-with open("dev/data/cache/LRUDatasetCache.pkl", "wb") as f:
-    pickle.dump(cache, f)
-```
-
-Subsequently, each time an experiment pipeline is run, the code will read the cache and determine whether a dataset needs to be reprocessed. The details can be found within any code file in `dev/mo_pipelines`.
+The dataset loader creates `dev/data/cache/` automatically and reuses processed datasets without rewriting their payloads. To rebuild a corrupted cache, remove `dev/data/cache/LRUDatasetCache.pkl` before running the pipeline again.
 
 #### 2. Train and Evaluate
 
 MODULi's ablation experiments are highly parameterized and are usually run in batches in `.sh` files. You can find the running scripts for most experiments in the `/script` folder (including but not limited to the experiments shown in the paper). Model training and evaluation are usually separate, controlled by the `--mode` parameter.
 
-For example, you can run the following command to train a standard Multi-Objective Decision Diffuser on the `HalfCheetah expert-uniform` dataset like:
+From the repository root, first train inverse dynamics, then the standard Multi-Objective Decision Diffuser on `HalfCheetah expert-uniform`:
 
 ```bash
-python -u dev/mo_pipelines/mo_dd.py --save_name model/22M --dataset_name MO-HalfCheetah-v2_50000_expert_uniform --device cuda:0 --mode train
+python -u -m dev.mo_pipelines.mo_dd_invdyn --dataset_name MO-HalfCheetah-v2_50000_expert_uniform --device cuda:0
+python -u -m dev.mo_pipelines.mo_dd --save_name model/22M --dataset_name MO-HalfCheetah-v2_50000_expert_uniform --device cuda:0 --mode train
 ```
 
 and then evaluate it:
 
 ```bash
-python -u dev/mo_pipelines/mo_dd.py --load_model model/22M/200000 --eval_name standard_eval --save_name model/22M --dataset_name MO-HalfCheetah-v2_50000_expert_uniform --device cuda:0 --mode eval
+python -u -m dev.mo_pipelines.mo_dd --load_model model/22M/200000 --eval_name standard_eval --save_name model/22M --dataset_name MO-HalfCheetah-v2_50000_expert_uniform --device cuda:0 --mode eval --uniform
 ```
+
+For a short pipeline check, use `--n_gradient_steps 1000` for both trainers, `--eval_interval 0` for diffusion training, and `--invdyn 1000 --load_model model/22M/1000 --num_prefs 5 --num_envs 5` for evaluation. Both trainers save their final step. Short runs check execution, not paper-level performance; `--resume` reloads model weights but starts a fresh optimizer.
 
 Information about the meaning of parameters and the parsing rules for strings (e.g., the `--save_name` parameter) can be found in any experiment pipeline code file.
 

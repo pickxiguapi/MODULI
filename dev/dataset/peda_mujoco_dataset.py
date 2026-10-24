@@ -41,8 +41,7 @@ class PEDAMuJoCoDataset(BaseDataset):
 
         from time import time
         
-        with open("dev/data/cache/LRUDatasetCache.pkl", "rb") as f:
-            cache = pickle.load(file=f)
+        cache = LRUDatasetCache.load()
 
         need_process = True
         if not force_override and cache.exists((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score)):
@@ -51,6 +50,8 @@ class PEDAMuJoCoDataset(BaseDataset):
                 cached_dataset = cache.get((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score))
                 self.__dict__.update(cached_dataset)
                 need_process = False
+                if not read_only:
+                    cache.save()
             except:
                 print("Failed to load cached dataset, reprocessing...")
 
@@ -176,14 +177,12 @@ class PEDAMuJoCoDataset(BaseDataset):
             if weighted_score:
                 self.seq_score = self.seq_score * self.seq_pref[:, None, :]
         
-        if not read_only:
-            with open("dev/data/cache/LRUDatasetCache.pkl", "rb") as f:
-                cache = pickle.load(file=f)
+        if need_process and not read_only:
+            cache = LRUDatasetCache.load()
             
             cache.put((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score), self.__dict__)
 
-            with open("dev/data/cache/LRUDatasetCache.pkl", "wb") as f:
-                pickle.dump(cache, file=f)
+            cache.save()
         print("Done.")
 
     def get_normalizer(self):
@@ -233,8 +232,7 @@ class ShatteredPEDAMuJoCoDataset(BaseDataset):
 
         from time import time
         
-        with open("dev/data/cache/LRUDatasetCache.pkl", "rb") as f:
-            cache = pickle.load(file=f)
+        cache = LRUDatasetCache.load()
 
         need_process = True
         if not force_override and cache.exists((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score, dropout_percent, dropout_points, side)):
@@ -243,6 +241,8 @@ class ShatteredPEDAMuJoCoDataset(BaseDataset):
                 cached_dataset = cache.get((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score, dropout_percent, dropout_points, side))
                 self.__dict__.update(cached_dataset)
                 need_process = False
+                if not read_only:
+                    cache.save()
             except:
                 print("Failed to load cached dataset, reprocessing...")
 
@@ -384,14 +384,12 @@ class ShatteredPEDAMuJoCoDataset(BaseDataset):
             if weighted_score:
                 self.seq_score = self.seq_score * self.seq_pref[:, None, :]
 
-        if not read_only:
-            with open("dev/data/cache/LRUDatasetCache.pkl", "rb") as f:
-                cache = pickle.load(file=f)
+        if need_process and not read_only:
+            cache = LRUDatasetCache.load()
             
             cache.put((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score, dropout_percent, dropout_points, side), self.__dict__)
 
-            with open("dev/data/cache/LRUDatasetCache.pkl", "wb") as f:
-                pickle.dump(cache, file=f)
+            cache.save()
         print("Done.")
 
     def get_normalizer(self):
@@ -438,8 +436,7 @@ class PEDAMuJoCoDataset3Obj(BaseDataset):
 
         from time import time
         
-        with open("dev/data/cache/LRUDatasetCache.pkl", "rb") as f:
-            cache = pickle.load(file=f)
+        cache = LRUDatasetCache.load()
 
         need_process = True
         if not force_override and cache.exists((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score)):
@@ -448,6 +445,8 @@ class PEDAMuJoCoDataset3Obj(BaseDataset):
                 cached_dataset = cache.get((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score))
                 self.__dict__.update(cached_dataset)
                 need_process = False
+                if not read_only:
+                    cache.save()
             except:
                 print("Failed to load cached dataset, reprocessing...")
 
@@ -561,14 +560,12 @@ class PEDAMuJoCoDataset3Obj(BaseDataset):
             if weighted_score:
                 self.seq_score = self.seq_score * self.seq_pref[:, None, :]
         
-        if not read_only:
-            with open("dev/data/cache/LRUDatasetCache.pkl", "rb") as f:
-                cache = pickle.load(file=f)
+        if need_process and not read_only:
+            cache = LRUDatasetCache.load()
             
             cache.put((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score), self.__dict__)
 
-            with open("dev/data/cache/LRUDatasetCache.pkl", "wb") as f:
-                pickle.dump(cache, file=f)
+            cache.save()
         print("Done.")
 
     def get_normalizer(self):
@@ -618,8 +615,7 @@ class ShatteredPEDAMuJoCoDataset3Obj(BaseDataset):
 
         from time import time
         
-        with open("dev/data/cache/LRUDatasetCache.pkl", "rb") as f:
-            cache = pickle.load(file=f)
+        cache = LRUDatasetCache.load()
 
         need_process = True
         if not force_override and cache.exists((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score, dropout_percent, dropout_points, side)):
@@ -628,6 +624,8 @@ class ShatteredPEDAMuJoCoDataset3Obj(BaseDataset):
                 cached_dataset = cache.get((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score, dropout_percent, dropout_points, side))
                 self.__dict__.update(cached_dataset)
                 need_process = False
+                if not read_only:
+                    cache.save()
             except:
                 print("Failed to load cached dataset, reprocessing...")
 
@@ -760,14 +758,12 @@ class ShatteredPEDAMuJoCoDataset3Obj(BaseDataset):
             if weighted_score:
                 self.seq_score = self.seq_score * self.seq_pref[:, None, :]
         
-        if not read_only:
-            with open("dev/data/cache/LRUDatasetCache.pkl", "rb") as f:
-                cache = pickle.load(file=f)
+        if need_process and not read_only:
+            cache = LRUDatasetCache.load()
             
             cache.put((dataset, horizon, terminal_penalty, max_path_length, avg, gamma, normalize_rewards, eps, discount, weighted_score, dropout_percent, dropout_points, side), self.__dict__)
 
-            with open("dev/data/cache/LRUDatasetCache.pkl", "wb") as f:
-                pickle.dump(cache, file=f)
+            cache.save()
         print("Done.")
 
     def get_normalizer(self):
